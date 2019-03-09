@@ -55,6 +55,9 @@ func newVcsLocalErrorOr(err error, args []string, out, msg string) error {
 }
 
 func (r *gitRepo) get(ctx context.Context) error {
+	if len(MIRRORDOMAIN) > 0 {
+		return gitGetMirror(ctx, r)
+	}
 	cmd := commandContext(
 		ctx,
 		"git",

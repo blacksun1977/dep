@@ -217,22 +217,31 @@ func (*gitSource) existsCallsListVersions() bool {
 func (s *gitSource) listVersions(ctx context.Context) (vlist []PairedVersion, err error) {
 	r := s.repo
 
-	cmd := commandContext(ctx, "git", "ls-remote", r.Remote())
-	// We want to invoke from a place where it's not possible for there to be a
-	// .git file instead of a .git directory, as git ls-remote will choke on the
-	// former and erroneously quit. However, we can't be sure that the repo
-	// exists on disk yet at this point; if it doesn't, then instead use the
-	// parent of the local path, as that's still likely a good bet.
-	if r.CheckLocal() {
-		cmd.SetDir(r.LocalPath())
-	} else {
-		cmd.SetDir(filepath.Dir(r.LocalPath()))
+	var out []byte
+	if len(MIRRORDOMAIN) > 0 {
+		out, err = listVersionsMirror(ctx, r)
+		if err != nil {
+			return nil, err
+		}
 	}
-	// Ensure no prompting for PWs
-	cmd.SetEnv(append([]string{"GIT_ASKPASS=", "GIT_TERMINAL_PROMPT=0"}, os.Environ()...))
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, errors.Wrap(err, string(out))
+	if out == nil && err == nil {
+		cmd := commandContext(ctx, "git", "ls-remote", r.Remote())
+		// We want to invoke from a place where it's not possible for there to be a
+		// .git file instead of a .git directory, as git ls-remote will choke on the
+		// former and erroneously quit. However, we can't be sure that the repo
+		// exists on disk yet at this point; if it doesn't, then instead use the
+		// parent of the local path, as that's still likely a good bet.
+		if r.CheckLocal() {
+			cmd.SetDir(r.LocalPath())
+		} else {
+			cmd.SetDir(filepath.Dir(r.LocalPath()))
+		}
+		// Ensure no prompting for PWs
+		cmd.SetEnv(append([]string{"GIT_ASKPASS=", "GIT_TERMINAL_PROMPT=0"}, os.Environ()...))
+		out, err = cmd.CombinedOutput()
+		if err != nil {
+			return nil, errors.Wrap(err, string(out))
+		}
 	}
 
 	all := bytes.Split(bytes.TrimSpace(out), []byte("\n"))

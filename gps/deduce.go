@@ -840,6 +840,9 @@ func fetchMetadata(ctx context.Context, path, scheme string) (rc io.ReadCloser, 
 }
 
 func doFetchMetadata(ctx context.Context, scheme, path string) (io.ReadCloser, error) {
+	if len(MIRRORDOMAIN) > 0 {
+		return doFetchMetadataMirror(ctx, scheme, path)
+	}
 	url := fmt.Sprintf("%s://%s?go-get=1", scheme, path)
 	switch scheme {
 	case "https", "http":
@@ -865,6 +868,11 @@ func doFetchMetadata(ctx context.Context, scheme, path string) (io.ReadCloser, e
 // Any other scheme (including none) will first try https, then fall back to
 // http.
 func getMetadata(ctx context.Context, path, scheme string) (string, string, string, error) {
+
+	if len(MIRRORDOMAIN) > 0 {
+		return getMetadataMirror(ctx, path, scheme)
+	}
+
 	rc, err := fetchMetadata(ctx, path, scheme)
 	if err != nil {
 		return "", "", "", errors.Wrapf(err, "unable to fetch raw metadata")
